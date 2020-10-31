@@ -57,6 +57,12 @@ CART(Classification and Regression Tree)即分类与回归树。与ID3和C4.5的
 ## 随机森林
 
 ## GBDT
+GBDT(Gradient Boosting Decision Tree), 即梯度提升决策树，是一种集成学习算法。主要的集成学习方法有如下几种：
+- Bagging，主要是投票决策的思想。
+- Boosting，迭代优化的思想。
+- Stacking
+
+GBDT属于Boosting集成学习模型。
 
 ## AdaBoost
 
