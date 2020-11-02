@@ -57,13 +57,46 @@ CART(Classification and Regression Tree)即分类与回归树。与ID3和C4.5的
 ## 随机森林
 
 ## GBDT
-GBDT(Gradient Boosting Decision Tree), 即梯度提升决策树，是一种集成学习算法。主要的集成学习方法有如下几种：
-- Bagging，主要是投票决策的思想。
-- Boosting，迭代优化的思想。
+GBDT(Gradient Boosting Decision Tree), 即梯度提升决策树，是一种集成学习模型。主要的集成学习方法有如下几种：
+- Bagging，主要思想是投票平均。
+- Boosting，主要思想是通过将单个弱学习器进行线性组合构成一个强学习器的。
 - Stacking
 
-GBDT属于Boosting集成学习模型。
+GBDT属于Boosting类型的集成学习模型，其使用CART作为弱学习器（基模型），并且融入梯度下降对模型进行优化。
 
+- 模型
+  
+  一个提升树模型可以描述为：
+  $$\mathcal{f}_M(x)=\sum_{m=1}^MT(x;\Theta_m)$$
+  $T(x;\Theta)$代表CART模型，也就是一棵回归树，可以表示为：$T(x;\Theta)=\sum_{j=1}^Jc_jI(x\in R_j)$，x为特征数据，$\Theta$为模型参数。这是一个加法模型，整个模型的输出由多棵决策树的输出组成。
+
+- 策略
+  
+  GBDT既可以用来做分类任务也可以用来做回归任务，只需要在模型输出上接不同的损失函数即可。
+
+- 算法
+  
+  提升树利用前向分步算法实现学习的优化过程。
+  第0步、第m步和最终模型可表示为：
+  $$f_0(x)=0$$
+  $$f_m(x)=f_{m-1}(x)+T(x;\Theta_m), m=1,2,...,M$$
+  $$f_M(x)=\sum_{m=1}^MT(x;\Theta_m)$$
+  当给定第m-1步的模型下，求解：
+  $$\hat{\Theta}_m=\mathcal{argmin}_{\Theta_m}\sum_{i=1}^NL(y_i, f_{m-1}(x_i)+T(x_i+T(x_i;\Theta_m)))$$
+  当损失函数为平方损失时：
+  $$L(y,f(x))=(y-f(x))^2$$
+  相应的损失可推导为：
+  $$L(y, f_{m-1}(x)+T(x;\Theta_m))$$
+  $$=[y-f_{m-1}-T(x;\Theta_m)]^2$$
+  $$=[r-T(x;\Theta_m)]^2$$
+  其中，$r=y-f_{m-1}(x)$
+
+> 提升树每一次迭代是在拟合一个残差函数。
+
+但是在实际工作中并不是每一个损失函数都如平方损失那样容易优化，所以有学者提出近似梯度下降（最速下降法）的方法，使用使用损失函数的负梯度在当前模型的值作为回归提升中残差的近似值。即：
+$$r_{mi}=-\bigg[\frac{\partial L(y_i, f(x_i))}{\partial f(x_i)} \bigg]_{f(x)=f_{m-1}(x)}$$
+  
+  
 ## AdaBoost
 
 ## XGBoost
