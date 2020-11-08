@@ -99,7 +99,79 @@ $$r_{mi}=-\bigg[\frac{\partial L(y_i, f(x_i))}{\partial f(x_i)} \bigg]_{f(x)=f_{
   
 ## AdaBoost
 
+
 ## XGBoost
+XGBoost（eXtreme Gradient Boosting），即极端梯度提升树，也属于boosting集成学习算法。它与GBDT的主要区别在于：
+- GBDT的前向分步算法中，每一步基学习器所拟合的是损失函数在当前步的负梯度。但是XGBoost每一步基学习器所拟合的是损失函数在当前步进行二阶泰勒展开之后，然后求出的需要拟合的值。
+- GBDT的损失函数中没有考虑结构风险，XGBoost的损失函数加入了对模型复杂度的约束。
+  
+XGBoost
+- 模型
+
+XGBoost也是有多个基模型组成的一个加法模型
+$$\hat{y}=\sum_{k=1}^Kf_k(x_i)$$
+K为基模型（CART）的数量，$f_k$为基模型，$x_i$为特征输入。
+
+- 策略
+
+XGBoost可以做回归任务也可以做分类任务，只需要在模型输出上接不同的损失函数。XGBoost的损失函数为：
+$$Obj = \sum_{i=1}^nl(y_i, \hat{y_i}) + \sum_{i=1}^t\Omega(f_i)$$
+其中$\hat{y_i}$为模型的输出，$\sum_{i=1}^t\Omega(f_i)$为损失函数的正则化项，表示全部t棵树的复杂度之和，旨在防止模型过拟合。
+
+- 算法
+
+XGBoost来自于GBDT，同样适用于前向分步算法，以第t步的模型为例，模型对第i个样本的预测值为：
+$$\hat{y_i}^{(t)}=\hat{y_i}^{t-1}+f_t(x_i)$$
+其中，$\hat{y_i}^{(t-1)}$是由第t-1步的模型给出的预测值，作为一个已知常数存在，$f_t(x_i)$是第t步树模型的预测值。所以目标函数可以改写为：
+$$Obj^{(t)}=\sum_{i=1}^nl(y_i, \hat{y_i}^{(t)})+\sum_{i=1}^t\Omega(f_i)$$
+$$=\sum_{i=1}^nl(y_i, \hat{y_i}^{(t-1)}+f_t(x_i))+\sum_{i=1}^t\Omega(f_i)$$
+$$=\sum_{i=1}^nl(y_i, \hat{y_i}^{(t-1)}+f_t(x_i))+\sum_{i=1}^{t-1}\Omega(f_i)+\Omega(f_i)$$
+$$=\sum_{i=1}^{n}l(y_i, \hat{y_i}^{(t-1)}+f_t(x_i)) + \Omega(f_t) + constant$$
+
+由于前t-1棵树的结构已经确定，因此前t-1棵树的复杂度之和可以表示为常数。
+
+经验损失部分可以使用二阶泰勒展开如下：
+$$l(y_i, \hat{y_i}^{(t-1)}+f_t(x_i))=l(y_i, \hat{y_i}^{(t-1)})+g_if_t(x_i)+\frac{1}{2}h_if_t^2(x_i)$$
+其中，$g_i$为损失函数的一阶导，$h_i$为损失函数的二阶导.注意：此处的导数是对$\hat{y_i}^{(t-1)}$求导。如果使用自定义损失函数，要求其二阶可导。
+
+将二阶泰勒展开带入损失函数中，可得到损失函数的近似表达式：
+$$Obj^{(t)}\approxeq \sum_{i=1}^n[l(y_i, \hat{y_i}^{t-1})+g_if_t(x_i)+\frac{1}{2}h_if_t^2(x_i)]+\Omega(f_t)+constant$$
+对上式去除相关常数项，简化后的损失函数为：
+$$Obj^{(t)}\approxeq \sum_{i=1}^n[g_if_t(x_i)+\frac{1}{2}h_if_t^2(x_i)]+\Omega(f_t)$$
+只需要求出每一步损失函数的一阶导和二阶导的值，然后最优化目标函数，就可以得到每一步的$f(x)$，可以理解为要当前步要优化的目标，使用一棵决策树去进行优化。
+
+一棵树的数学表达式为:
+$$f_t(x)=w_{q(x)}$$
+该表达式包括两部分：
+- 叶子节点的权重向量$\bold{w}$
+- 样本实例到叶子节点的映射关系$\bold{q}$, $q(x)$表示样本实例x属于哪个叶子节点。
+  
+模型复杂度$\Omega$可由单棵树的叶子结点数$T$和叶子权重$w$所决定，数学表达式如下：
+$$\Omega(f_t)=\gamma T+\frac{1}{2}\lambda\sum_{j=1}^Tw_j^2$$
+对所有的叶子节点进行重新归组，将属于第j个叶子节点的所有样本$x_i$划入到一个叶子结点的样本集合中，即: $I_j=\{i|q(x_i)=j\}$，从而XGBoost的目标函数可以改写为：
+$$Obj^t\approxeq \sum_{i=1}^n\Big[g_if_t(x_i)+\frac{1}{2}h_if_t^2(x_i)\Big]+\Omega(f_t)$$
+$$=\sum_{i=1}^n\Big[g_iw_{q(x_i)}+\frac{1}{2}h_iw_{(x_i)}^2\Big]+\gamma T+\frac{1}{2}\lambda \sum_{j=1}^Tw_j^2$$
+$$=\sum_{j=1}^T\Big[(\sum_{i\in I_j}g_i)w_j+\frac{1}{2}(\sum_{i \in I_j}h_i+\lambda)w^2\Big]+\gamma T$$
+定义
+$$G_j=\sum_{i \in I_j}g_i, H_j=\sum_{i\in I_j}h_i$$
+- $G_j$：叶子结点j所包含样本的一阶偏导数累加之和，是一个常量。
+- $H_j$: 叶子结点j所包含样本的二阶导偏导数累加之和，是一个常量。
+  
+将$G_j$和$H_j$带入前述XGBoost损失函数，可得最终的损失函数表示为：
+$$Obj^{(t)}=\sum_{j=1}^T\Big[G_jw_j+\frac{1}{2}(H_j+\lambda)w_j^2\Big]+\gamma T$$
+
+上述目标函数中，每个叶子结点对应一个目标函数:$G_jw_j+\frac{1}{2}(H_j+\lambda)w_j^2$，该式就是一个只包含一个变量叶子结点权重$w_j$的一元二次函数，可根据最值公式求其最值点。当每个叶子结点都达到最优值时，整个损失函数也相应的达到最优。
+当树结构固定的情况下，对上式求导，并令其为0，可得最优点和最优值为：
+$$w_j^*=-\frac{G_j}{H_j+\lambda}$$
+$$Obj = -\frac{1}{2}\sum_{j=1}^T\frac{G_j^2}{H_j+\lambda}+\gamma T$$
+XGBoost的结点分裂方式跟CART树的结点分裂方式本质上并没有太大区别，但是信息增益的计算方式有所不同。
+假设模型在某一结点完成特征分裂，分裂前的目标函数可以写为：
+$$Obj_1=-\frac{1}{2}\Big[\frac{(G_L+G_R)^2}{H_L+H_R+\lambda}\Big]+\gamma$$
+分裂后的目标函数为：
+$$Obj_2=-\frac{1}{2}\Big[\frac{G_L^2}{H_L+\lambda}+\frac{G_R^2}{H_R+\lambda}\Big]+2\gamma$$
+则对于目标函数来说，分裂后的收益为：
+$$Gain=\frac{1}{2}\Big[\frac{G_L^2}{H_L+\lambda}+\frac{G_R^2}{H_R+\lambda}-\frac{(G_L+G_R)^2}{H_L+H_R+\lambda}\Big]-\lambda$$
+如果增益Gain>0，即分裂为两个叶子结点后，目标函数下降了，则考虑此次分裂的结果。实际处理时需要遍历所有特征寻找最佳分裂特征。
 
 ## LightGBM
 
